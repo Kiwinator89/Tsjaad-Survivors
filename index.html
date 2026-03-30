@@ -64,13 +64,6 @@
 
   #chestMsg{position:absolute;top:22%;left:50%;transform:translateX(-50%);pointer-events:none;z-index:15;opacity:0;transition:opacity .25s;font-family:'Oswald',sans-serif;color:#FFD700;font-size:22px;letter-spacing:3px;font-weight:700;text-shadow:0 0 18px rgba(255,215,0,.6);}
   #chestMsg.show{opacity:1;}
-
-  /* Bomb timer indicator */
-  #bombTimer{position:absolute;top:52px;left:50%;transform:translateX(-50%);pointer-events:none;z-index:10;background:var(--ui);border:1px solid var(--deep);border-radius:3px;padding:3px 12px;display:none;}
-  #bombTimer.active{display:block;}
-  #bombTimerBar{width:120px;height:5px;background:#1a0a00;border-radius:2px;overflow:hidden;margin-top:2px;}
-  #bombTimerFill{height:100%;background:linear-gradient(90deg,#ff4400,#ffaa00);border-radius:2px;transition:width .1s;}
-  #bombTimerLabel{font-family:'Share Tech Mono',monospace;color:#ff9944;font-size:9px;letter-spacing:2px;text-align:center;}
 </style>
 </head>
 <body>
@@ -98,11 +91,6 @@
       <div class="hl" style="margin-top:3px">SCORE</div>
       <div class="hv" id="scoreV" style="font-size:14px;color:var(--xp)">0</div>
     </div>
-  </div>
-
-  <div id="bombTimer">
-    <div id="bombTimerLabel">BOM ▶ 30s</div>
-    <div id="bombTimerBar"><div id="bombTimerFill" style="width:100%"></div></div>
   </div>
 
   <div id="auP"></div>
@@ -511,8 +499,7 @@ function reset(){
     nextBoss:120,
     decos:[],
     chestMsgT:0,
-    bombCooldown:30, // Atoombom: elke 30s
-    bombChargeT:0,
+    bombChargeT:0, // Atoombom: elke 10s explosie rondom speler
     choosingWeapon:false,
     lightningT:0,
   };
@@ -548,8 +535,8 @@ function weaponDesc(id,nextLv){
       if(l===8)return'★ ULTIEM: AARDBEVING — gooit 3 mega-rotsblokken tegelijk die door alles heen rollen + AoE bij inslag.';
       return`Zware steen rolt door meerdere vijanden.\nLv${l}: schade ${56+l*26}, pierce ${3+l}x, cooldown ${Math.max(550,2700-l*300)}ms${ult}`;
     case 'explosive':
-      if(l===8)return'★ ULTIEM: NUCLEAIRE BLIKSEM — elke 30s een MASSALE explosie die ALLE vijanden op het scherm raakt voor 999 schade.';
-      return`Elke 30 seconden: massale explosie raakt ALLE vijanden.\nLv${l}: schade ${60+l*40} voor iedereen, extra AoE radius ${80+l*20}px${ult}`;
+      if(l===8)return'★ ULTIEM: NUCLEAIRE EXPLOSIE — elke 10s een MASSALE explosie rondom de speler die ALLE nabije vijanden raakt voor 999 schade.';
+      return`Elke 10 seconden: explosie rondom de speler.\nLv${l}: schade ${60+l*40}, radius ${100+l*35}px rondom jou${ult}`;
     case 'lightning':
       if(l===8)return'★ ULTIEM: ONWEERSGOD — elke 0.4s slaat bliksem op een WILLEKEURIGE vijand met 8-voudige keten. Massavernietiging.';
       return`Passief: bliksem slaat random op vijanden.\nLv${l}: elke ${Math.max(0.4,3.0-l*0.32).toFixed(1)}s, schade ${25+l*18}, keten ${1+l}x vijanden${ult}`;
@@ -605,7 +592,7 @@ const UPS=[
 ];
 
 // ── Enemy Types ────────────────────────────────────────────────────────────────
-// Bosses now have 3x HP (marked with *3 comment)
+// Boss HP: original values (no multiplier — previously had x3 which is now removed)
 const ET=[
   {id:'giraffe', sp:'giraffe', hp:80,   spd:1.55,dmg:10,r:17,xp:10,sc:50,   boss:false,
    ability:'stomp', abilityDesc:'Stampvoet soms op de grond - AoE schade rondom.',
@@ -628,19 +615,18 @@ const ET=[
   {id:'hippo',   sp:'hippo',   hp:360,  spd:0.75,dmg:35,r:33,xp:25,sc:180,  boss:false,
    ability:'rage', abilityDesc:'Bij <40% HP verdubbelt snelheid en schade.',
    abilityCD:0,abilityCur:0,raging:false},
-  // Vultures: minder flock, lagere spawn kans
   {id:'vulture', sp:'vulture', hp:50,   spd:2.2, dmg:8, r:14,xp:8, sc:55,   boss:false,
    ability:'flock', abilityDesc:'Spawnt extra gieren bij dood (max 1).',
    abilityCD:0,abilityCur:0,flocking:true},
   {id:'scorpion_en',sp:'scorpion_enemy',hp:90,spd:1.6,dmg:20,r:18,xp:13,sc:90, boss:false,
    ability:'poison',abilityDesc:'Elke aanval vergiftigt de speler voor 5 sec.',
    abilityCD:0,abilityCur:0},
-  // Bosses: 3x HP compared to original
-  {id:'megaelephant',sp:'mega_elephant',hp:6600,spd:.7,dmg:45,r:55,xp:180,sc:1500,boss:true,bname:'MEGA-OLIFANT',
+  // Bosses: normal HP (÷3 compared to previous version)
+  {id:'megaelephant',sp:'mega_elephant',hp:2200,spd:.7,dmg:45,r:55,xp:180,sc:1500,boss:true,bname:'MEGA-OLIFANT',
    ability:'stomp',abilityCD:3,abilityCur:0},
-  {id:'alphalion',   sp:'alpha_lion',   hp:3300,spd:3.2,dmg:40,r:40,xp:150,sc:1100,boss:true,bname:'ALFA-LEEUW',
+  {id:'alphalion',   sp:'alpha_lion',   hp:1100,spd:3.2,dmg:40,r:40,xp:150,sc:1100,boss:true,bname:'ALFA-LEEUW',
    ability:'sprint',abilityCD:4,abilityCur:0,sprinting:false,sprintT:0},
-  {id:'ancienthippo',sp:'ancient_hippo',hp:8400,spd:.55,dmg:60,r:65,xp:260,sc:2200,boss:true,bname:'OEROUDE NIJLPAARD',
+  {id:'ancienthippo',sp:'ancient_hippo',hp:2800,spd:.55,dmg:60,r:65,xp:260,sc:2200,boss:true,bname:'OEROUDE NIJLPAARD',
    ability:'rage',abilityCD:0,abilityCur:0,raging:false},
 ];
 
@@ -881,7 +867,6 @@ function drawPlayer(){
 }
 
 function drawParticles(){
-  // Limit particles drawn for performance
   const maxDraw = Math.min(S.parts.length, 60);
   for(let i=0;i<maxDraw;i++){
     const p=S.parts[i];
@@ -900,26 +885,6 @@ function drawParticles(){
   }
 }
 
-function drawBombIndicator(){
-  if(!S.ups.explosive)return;
-  const el=document.getElementById('bombTimer');
-  const fill=document.getElementById('bombTimerFill');
-  const label=document.getElementById('bombTimerLabel');
-  el.classList.add('active');
-  const pct=Math.max(0,1-(S.bombChargeT/30));
-  fill.style.width=(pct*100)+'%';
-  const remaining=Math.ceil(30-S.bombChargeT);
-  label.textContent=`BOM ▶ ${remaining}s`;
-  // Flash when ready
-  if(S.bombChargeT>=30){
-    el.style.borderColor='#ff4400';
-    label.style.color='#ff4400';
-  } else {
-    el.style.borderColor='';
-    label.style.color='';
-  }
-}
-
 function drawMinimap(){
   const sx=130/WW,sy=100/WH;
   mctx.clearRect(0,0,130,100);
@@ -932,7 +897,6 @@ function drawMinimap(){
     mctx.fillStyle='#FFD700';
     mctx.fillRect(ch.x*sx-2,ch.y*sy-2,4,4);
   }
-  // Limit minimap dots for performance
   const enSlice=S.ens.slice(0,MAX_ENEMIES);
   for(const e of enSlice){
     mctx.fillStyle=e.t.boss?'#ff6b35':'#e53935';
@@ -952,12 +916,10 @@ function render(){
   if(poisonT>0){ctx.fillStyle=`rgba(0,180,0,${Math.min(.1,poisonT*.015)})`;ctx.fillRect(-20,-20,W+40,H+40);}
   ctx.restore();
   drawMinimap();
-  drawBombIndicator();
 }
 
 // ── Spawn ─────────────────────────────────────────────────────────────────────
 function spawnEnemy(forceBoss){
-  // Enforce enemy cap to reduce lag
   if(S.ens.length>=MAX_ENEMIES)return;
 
   let t;
@@ -968,7 +930,6 @@ function spawnEnemy(forceBoss){
     announce(`BAAS: ${t.bname||'BAAS'}!`,'PAS OP!');
   } else {
     const p2=pool(S.wave);
-    // Reduce vulture weight: only 5% of spawns can be vultures
     let candidates=p2.filter(e=>e.id!=='vulture');
     if(Math.random()<0.05&&p2.find(e=>e.id==='vulture'))candidates.push(p2.find(e=>e.id==='vulture'));
     if(!candidates.length)candidates=p2;
@@ -981,7 +942,6 @@ function spawnEnemy(forceBoss){
   else if(side===2){x=px+(Math.random()-.5)*sr*2;y=py+sr;}
   else{x=px-sr;y=py+(Math.random()-.5)*sr*2;}
   x=Math.max(60,Math.min(WW-60,x));y=Math.max(60,Math.min(WH-60,y));
-  // Slower difficulty scaling: was wave*.13 + time/350*.25, now wave*.08 + time/500*.18
   const scl=1+(S.wave-1)*.08+S.time/500*.18;
   const e={x,y,hp:t.hp*scl,t,flash:0,_ocd:0,
     abilityCur:0,sprinting:false,sprintT:0,charging:false,chargeT:0,chargeVx:0,chargeVy:0,raging:false};
@@ -1129,33 +1089,52 @@ function fireWeapons(){
   }
 }
 
-// ── ATOOMBOM: elke 30 seconden ALLE vijanden ──────────────────────────────────
+// ── ATOOMBOM: elke 10 seconden explosie rondom speler ─────────────────────────
 function tickBomb(dt){
   if(!S.ups.explosive)return;
   const l=S.ups.explosive;
 
   S.bombChargeT+=dt;
 
-  if(S.bombChargeT>=30){
+  if(S.bombChargeT>=10){
     S.bombChargeT=0;
     const dmg=l===8?999:(60+l*40);
-    const rad=l===8?9999:(80+l*20);
+    const rad=l===8?9999:(100+l*35);
     let hitCount=0;
-    // Hit ALL enemies on screen
+
+    // Hit all enemies within radius of the PLAYER
     for(const e of S.ens){
-      if(e.hp>0){
+      if(e.hp>0&&dist2(e,S.p)<rad+e.t.r){
         damageE(e,dmg);
         hitCount++;
-        // Visual effect on each enemy
         fxP(e.x,e.y,'#ff6600',12,30);
       }
     }
+
+    // Visual explosion ring around player
+    sfxExplo();
+    shake=Math.min(shake+14,20);
+
+    // Draw explosion ring effect as particles
+    const ps=S.p;
+    for(let i=0;i<24;i++){
+      const ang=(i/24)*Math.PI*2;
+      S.parts.push({
+        x:ps.x+Math.cos(ang)*rad*.3,
+        y:ps.y+Math.sin(ang)*rad*.3,
+        col:'#ff6600',sz:18,life:35,maxL:35,
+        vx:Math.cos(ang)*3.5,vy:Math.sin(ang)*3.5,isT:false
+      });
+      S.parts.push({
+        x:ps.x+Math.cos(ang+.13)*rad*.6,
+        y:ps.y+Math.sin(ang+.13)*rad*.6,
+        col:'#FFD700',sz:12,life:28,maxL:28,
+        vx:Math.cos(ang)*2,vy:Math.sin(ang)*2,isT:false
+      });
+    }
+
     if(hitCount>0){
-      sfxExplo();sfxExplo();
-      shake=Math.min(shake+18,24);
-      // Big screen flash
-      S.parts.push({x:S.p.x,y:S.p.y,c:'💥 BLIKSEM!',col:'#ff4400',sz:28,life:55,maxL:55,vx:0,vy:-0.8,isT:true});
-      announce('ATOOM BLIKSEM!',`${hitCount} VIJANDEN GERAAKT`);
+      S.parts.push({x:ps.x,y:ps.y-30,c:`💥 ${hitCount}`,col:'#ff4400',sz:24,life:55,maxL:55,vx:0,vy:-0.8,isT:true});
     }
   }
 }
@@ -1251,11 +1230,9 @@ function killE(e){
   S.kills++;S.score+=Math.round(e.t.sc*S.mult);
   S.mult=Math.min(10,S.mult+.12);S.multT=4;
   sfxKill();shake=Math.min(shake+(e.t.boss?22:5),e.t.boss?26:10);
-  // Fewer particles for performance
   fxP(e.x,e.y,'#D4A854',e.t.boss?22:12,e.t.boss?60:36);
   if(e.t.boss){fxP(e.x,e.y,'#ff6600',20,45);fxP(e.x,e.y,'#FFD700',16,50);}
   const drops=e.t.boss?8:Math.random()<.10?2:1;
-  // XP scaling: later in game, fewer/smaller orbs to slow down leveling
   const xpMult=Math.max(0.4, 1 - (S.wave*0.04));
   for(let i=0;i<drops;i++)S.picks.push({x:e.x+(Math.random()-.5)*44,y:e.y+(Math.random()-.5)*44,kind:'xp',value:Math.round(e.t.xp*xpMult)});
   if(Math.random()<.05)S.picks.push({x:e.x,y:e.y,kind:'hp',value:25});
@@ -1264,7 +1241,6 @@ function killE(e){
     S.p.hp=Math.min(S.p.hp+healAmt,S.p.maxHp);
     if(e.t.boss&&S.ups.vampire===8)S.p.hp=S.p.maxHp;
   }
-  // Vulture flock: only spawn 1 extra (was 2), and only if under cap
   if(e.t.ability==='flock'&&!e.t.boss&&S.ens.length<MAX_ENEMIES-5){
     const ang=Math.random()*Math.PI*2;
     const ne=JSON.parse(JSON.stringify(ET.find(t=>t.id==='vulture')));
@@ -1274,16 +1250,13 @@ function killE(e){
   gainXP(e.t.xp);
 }
 
-// XP: scaling factor so later levels need significantly more XP
 function gainXP(a){
-  // Reduce XP gain in later waves/levels
   const lvlPenalty=Math.max(0.3, 1-(S.p.lv*0.04));
   const wavePenalty=Math.max(0.35, 1-(S.wave*0.04));
   const adjustedXP=Math.round(a*lvlPenalty*wavePenalty);
   S.p.xp+=adjustedXP;
   while(S.p.xp>=S.p.xpNext){
     S.p.xp-=S.p.xpNext;
-    // XP needed grows faster per level
     S.p.xpNext=Math.floor(S.p.xpNext*1.38);
     S.p.lv++;S.lvlQ++;sfxLvl();
   }
@@ -1330,13 +1303,11 @@ function tickPicks(){
     }
     return true;
   });
-  // Limit pickup pool size for performance
   if(S.picks.length>200)S.picks=S.picks.slice(-200);
 }
 
-// ── Enemy separation (simplified for performance) ────────────────────────────
+// ── Enemy separation ─────────────────────────────────────────────────────────
 function separate(){
-  // Only run separation every other frame
   if(S.frame%2!==0)return;
   const en=S.ens;
   for(let i=0;i<en.length;i++)for(let j=i+1;j<en.length;j++){
@@ -1351,15 +1322,19 @@ function update(ts){
   const dt=Math.min((ts-lastT)/1000,.055);lastT=ts;
   S.time+=dt;S.frame++;
 
-  // Wave — slower scaling: every 50s instead of 40s
-  if(S.time-S.lastWaveT>50){S.wave++;S.lastWaveT=S.time;announce(`WAVE ${S.wave}`,WAVE_SUBS[Math.min(S.wave-1,WAVE_SUBS.length-1)]);}
+  // Wave — infinite: every 50s, no cap
+  if(S.time-S.lastWaveT>50){
+    S.wave++;
+    S.lastWaveT=S.time;
+    // No wave announcement popup — silently increment
+  }
   if(S.wPopT>0){S.wPopT-=dt;if(S.wPopT<=0)document.getElementById('wPop').classList.remove('show');}
   if(S.chestMsgT>0){S.chestMsgT-=dt;if(S.chestMsgT<=0)document.getElementById('chestMsg').classList.remove('show');}
 
-  // Boss — slightly less frequent
+  // Boss
   if(S.time>=S.nextBoss){S.nextBoss+=100+S.wave*6;spawnEnemy(true);}
 
-  // Spawn — reduced rates across all waves
+  // Spawn
   const sr=Math.max(.25,2.2-S.wave*.1-S.time/220);
   S.spawnT+=dt;
   while(S.spawnT>=sr){
@@ -1411,7 +1386,6 @@ function update(ts){
     }
     return true;
   });
-  // Cap projectiles for performance
   if(S.projs.length>150)S.projs=S.projs.slice(-150);
 
   // fire damage tick
@@ -1472,7 +1446,6 @@ function update(ts){
     if(S.ups.maxhp===8)S.p.hp=Math.min(S.p.hp+5,S.p.maxHp);
   }
 
-  // Particle limit for performance
   S.parts=S.parts.filter(pt=>{pt.x+=pt.vx||0;pt.y+=(pt.vy||0)-.35;pt.life--;return pt.life>0;});
   if(S.parts.length>100)S.parts=S.parts.slice(-100);
 
@@ -1528,15 +1501,12 @@ function showLvlUp(){
     }
   });
 
-  // More balanced: don't heavily favor owned weapons.
-  // Mix owned and new more evenly.
   const owned=candidates.filter(u=>(S.ups[u.id]||0)>0);
   const newOnes=candidates.filter(u=>(S.ups[u.id]||0)===0);
   owned.sort(()=>Math.random()-.5);
   newOnes.sort(()=>Math.random()-.5);
 
   let picks=[];
-  // 50/50 chance: give 1 owned + 2 new, OR 2 owned + 1 new
   if(Math.random()<0.5){
     picks=picks.concat(owned.slice(0,1));
     picks=picks.concat(newOnes.slice(0,2));
@@ -1544,7 +1514,6 @@ function showLvlUp(){
     picks=picks.concat(owned.slice(0,2));
     picks=picks.concat(newOnes.slice(0,1));
   }
-  // Fill up to 3 if needed
   if(picks.length<3){
     const rest=candidates.filter(u=>!picks.includes(u));
     rest.sort(()=>Math.random()-.5);
@@ -1600,7 +1569,6 @@ function pickUp(id){
 // ── Game over ─────────────────────────────────────────────────────────────────
 function gameOver(){
   S.running=false;
-  document.getElementById('bombTimer').classList.remove('active');
   const m=Math.floor(S.time/60),s=Math.floor(S.time%60);
   document.getElementById('finalStats').innerHTML=
     `Overleefd: ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}<br>
@@ -1625,11 +1593,9 @@ function startGame(){
   document.getElementById('luO').classList.remove('on');
   document.getElementById('wPop').classList.remove('show');
   document.getElementById('chestMsg').classList.remove('show');
-  document.getElementById('bombTimer').classList.remove('active');
   poisonT=0;slowT=0;shake=0;
   reset();S.running=true;
   buildDecos();camUpdate();updateHUD();
-  // Show weapon choice first, no starting weapon
   lastT=performance.now();
   showWeaponChoice();
 }
